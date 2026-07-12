@@ -332,7 +332,7 @@
 </div>
 
 <script type="module">
-    import init, { ChatModel } from './pkg/larp_torch_website.js?v=de6b2442ef7c';
+    import init, { ChatModel } from './pkg/larp_torch_website.js?v=00d4ae345c48';
 
     // --- DOM refs ---
     const statusEl = document.getElementById('status');
@@ -348,6 +348,7 @@
     // --- State ---
     let model = null;
     let isGenerating = false;
+    let cancelRequested = false; // set when the user clicks into the input mid-reply
     let conversation = []; // array of { role: 'user'|'assistant', text: string }
     let generationBuffer = '';
 
@@ -411,23 +412,23 @@
         conversation.push({ role: 'user', text });
         appendMessage('user', text);
         userInput.value = '';
-        userInput.disabled = true;
+        // userInput stays enabled during generation on purpose — clicking
+        // into it is how you interrupt a reply, see the focus listener below.
         sendBtn.disabled = true;
     }
 
     function addAssistantMessage(text) {
         conversation.push({ role: 'assistant', text });
         appendMessage('assistant', text);
-        userInput.disabled = false;
         sendBtn.disabled = false;
         userInput.focus();
     }
 
-    import { get_embedded_weights, get_embedded_vocab } from './pkg/larp_torch_website.js?v=de6b2442ef7c';
+    import { get_embedded_weights, get_embedded_vocab } from './pkg/larp_torch_website.js?v=00d4ae345c48';
 
     async function loadModel() {
         try {
-            await init('./pkg/larp_torch_website_bg.wasm?v=de6b2442ef7c');
+            await init('./pkg/larp_torch_website_bg.wasm?v=00d4ae345c48');
             const weights = get_embedded_weights();
             const vocabText = get_embedded_vocab();
             model = await ChatModel.load(weights, vocabText);
@@ -439,11 +440,23 @@
     }
 
     // --- Generation ---
+    // next_token() is a synchronous Rust call now (not real async), so
+    // `await`ing it doesn't yield to the browser's paint cycle — without
+    // this, the DOM gets updated 50 times but the browser never actually
+    // paints any of it until the loop's done, so it looks like one long
+    // freeze followed by the whole reply appearing at once. sleep() forces
+    // a real yield between tokens, which both fixes that and paces the
+    // reply out like it's being typed.
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     async function generateResponse(prompt) {
         if (!model || isGenerating) return;
         if (!prompt.trim()) return;
 
         isGenerating = true;
+        cancelRequested = false;
         addUserMessage(prompt);
 
         // Seed the model with the prompt
@@ -461,8 +474,9 @@
         let firstToken = true;
 
         try {
-            // Generate up to 50 tokens
+            // Generate up to 50 tokens, or until interrupted
             for (let i = 0; i < 50; i++) {
+                if (cancelRequested) break;
                 const rand = Math.random();
                 const token = await model.next_token(temp, rand);
 
@@ -491,6 +505,8 @@
                     msgElement.textContent = fullResponse;
                 }
                 chatBox.scrollTop = chatBox.scrollHeight;
+
+                await sleep(45);
             }
 
             // Finalize the message
@@ -516,7 +532,6 @@
         }
 
         isGenerating = false;
-        userInput.disabled = false;
         sendBtn.disabled = false;
         userInput.focus();
     }
@@ -525,6 +540,13 @@
     sendBtn.addEventListener('click', () => {
         const text = userInput.value.trim();
         if (text) generateResponse(text);
+    });
+
+    // clicking (or tabbing) into the input mid-reply interrupts it —
+    // the generation loop notices cancelRequested and stops within one
+    // token instead of finishing all 50.
+    userInput.addEventListener('focus', () => {
+        if (isGenerating) cancelRequested = true;
     });
 
     userInput.addEventListener('keydown', (e) => {
