@@ -3,238 +3,332 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Larp Torch Chat</title>
+    <title>LarpGPT</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+        :root {
+            --bg: #ffffff;
+            --bg-elevated: #f4f4f5;
+            --bg-composer: #f4f4f4;
+            --border: #e6e6e6;
+            --text: #0d0d0d;
+            --text-muted: #6e6e80;
+            --accent: #10a37f;
+            --accent-text: #ffffff;
+            --warn: #b45309;
+            --danger: #d1293d;
+            --focus-ring: rgba(16, 163, 127, 0.35);
         }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #212121;
+                --bg-elevated: #2f2f2f;
+                --bg-composer: #2f2f2f;
+                --border: #3a3a3a;
+                --text: #ececec;
+                --text-muted: #a0a0a8;
+                --accent: #10a37f;
+                --accent-text: #ffffff;
+                --warn: #f0b429;
+                --danger: #f2555f;
+                --focus-ring: rgba(16, 163, 127, 0.45);
+            }
+        }
+        :root[data-theme="dark"] {
+            --bg: #212121;
+            --bg-elevated: #2f2f2f;
+            --bg-composer: #2f2f2f;
+            --border: #3a3a3a;
+            --text: #ececec;
+            --text-muted: #a0a0a8;
+            --accent: #10a37f;
+            --accent-text: #ffffff;
+            --warn: #f0b429;
+            --danger: #f2555f;
+            --focus-ring: rgba(16, 163, 127, 0.45);
+        }
+        :root[data-theme="light"] {
+            --bg: #ffffff;
+            --bg-elevated: #f4f4f5;
+            --bg-composer: #f4f4f4;
+            --border: #e6e6e6;
+            --text: #0d0d0d;
+            --text-muted: #6e6e80;
+            --accent: #10a37f;
+            --accent-text: #ffffff;
+            --warn: #b45309;
+            --danger: #d1293d;
+            --focus-ring: rgba(16, 163, 127, 0.35);
+        }
+
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100dvh;
+            overflow: hidden;
         }
-        .container {
-            max-width: 800px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+
+        .app {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100%;
         }
-        h1 {
-            text-align: center;
-            color: #e94560;
-            font-weight: 300;
-            letter-spacing: 2px;
-            padding: 10px 0;
-            border-bottom: 1px solid #333;
-        }
-        .status {
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            background: #16213e;
-            border-left: 4px solid #e94560;
-            min-height: 50px;
+
+        /* ---- top bar ---- */
+        .topbar {
             display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
         }
-        .status.loading { border-left-color: #f5a623; }
-        .status.ready { border-left-color: #2ecc71; }
-        .status.error { border-left-color: #e74c3c; }
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #f5a623;
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        .chat-box {
-            background: #16213e;
-            border-radius: 12px;
-            padding: 20px;
-            min-height: 300px;
-            max-height: 500px;
-            overflow-y: auto;
-            border: 1px solid #2a3a5e;
+        .brand {
             font-size: 15px;
-            line-height: 1.6;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
         }
-        .chat-box .user {
-            color: #f5a623;
+        .brand .model-tag {
+            font-size: 11px;
             font-weight: 500;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 1px 8px;
         }
-        .chat-box .assistant {
-            color: #2ecc71;
-            font-weight: 500;
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
         }
-        .chat-box .message {
-            padding: 4px 0;
+        .status .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            flex: none;
         }
-        .chat-box .message:last-child .cursor {
+        .status.loading .dot { background: var(--warn); animation: pulse 1.1s ease-in-out infinite; }
+        .status.ready .dot { background: var(--accent); }
+        .status.error .dot { background: var(--danger); }
+        .status.error { color: var(--danger); }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.7); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .status.loading .dot { animation: none; }
+        }
+
+        /* ---- message list ---- */
+        .chat {
+            overflow-y: auto;
+            max-width: 768px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 28px 20px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .message {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .message.user { justify-content: flex-end; }
+
+        /* avatar: JS always creates this as the first <span> in a message.
+           real element children are matched by :first-child regardless of
+           preceding text nodes, so this is safe for every message. */
+        .message > span:first-child {
+            flex: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            margin-top: 2px;
+        }
+        .message.user > span:first-child { display: none; }
+
+        .message > span:nth-child(2) {
+            min-width: 0;
+            font-size: 15px;
+            line-height: 1.65;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding-top: 3px;
+        }
+        .message.user > span:nth-child(2) {
+            background: var(--bg-elevated);
+            border-radius: 20px;
+            padding: 10px 16px;
+            max-width: 75%;
+        }
+
+        .cursor {
             display: inline-block;
             width: 2px;
             height: 1em;
-            background: #2ecc71;
+            background: var(--accent);
             animation: blink 1s step-end infinite;
             vertical-align: text-bottom;
             margin-left: 2px;
         }
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) {
+            .cursor { animation: none; }
         }
-        
-        .input-area {
+
+        .chat::-webkit-scrollbar { width: 8px; }
+        .chat::-webkit-scrollbar-track { background: transparent; }
+        .chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* ---- composer ---- */
+        .composer {
+            padding: 10px 20px 18px;
+        }
+        .toolbar {
+            max-width: 768px;
+            margin: 0 auto 10px;
             display: flex;
-            gap: 10px;
-        }
-        .input-area input {
-            flex: 1;
-            padding: 14px 18px;
-            border: 1px solid #2a3a5e;
-            border-radius: 8px;
-            background: #0f1a2e;
-            color: #eee;
-            font-size: 15px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        .input-area input:focus {
-            border-color: #e94560;
-        }
-        .input-area input::placeholder {
-            color: #666;
-        }
-        .input-area button {
-            padding: 14px 28px;
-            border: none;
-            border-radius: 8px;
-            background: #e94560;
-            color: #fff;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.3s, transform 0.1s;
-            white-space: nowrap;
-        }
-        .input-area button:hover:not(:disabled) {
-            background: #c73652;
-        }
-        .input-area button:active:not(:disabled) {
-            transform: scale(0.97);
-        }
-        .input-area button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .controls {
-            display: flex;
-            gap: 12px;
             align-items: center;
+            justify-content: space-between;
+            gap: 12px;
             flex-wrap: wrap;
         }
-        .controls label {
+        .temp-control {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 14px;
-            color: #aaa;
-        }
-        .controls input[type="range"] {
-            width: 120px;
-            accent-color: #e94560;
-            background: #2a3a5e;
-            height: 4px;
-            border-radius: 2px;
-            cursor: pointer;
-        }
-        .controls .temp-value {
-            min-width: 30px;
-            text-align: center;
-            color: #f5a623;
-            font-weight: 600;
-        }
-        .controls button {
-            padding: 8px 16px;
-            border: 1px solid #2a3a5e;
-            border-radius: 6px;
-            background: transparent;
-            color: #aaa;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.3s;
-        }
-        .controls button:hover {
-            background: #2a3a5e;
-            color: #eee;
-        }
-        
-        .footer {
-            text-align: center;
-            color: #555;
             font-size: 12px;
-            padding: 10px 0;
+            color: var(--text-muted);
         }
-        
-        /* Scrollbar styling */
-        .chat-box::-webkit-scrollbar {
-            width: 6px;
+        .temp-control input[type="range"] {
+            width: 110px;
+            accent-color: var(--accent);
+            cursor: pointer;
         }
-        .chat-box::-webkit-scrollbar-track {
-            background: #0f1a2e;
+        .temp-value {
+            min-width: 28px;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
         }
-        .chat-box::-webkit-scrollbar-thumb {
-            background: #2a3a5e;
-            border-radius: 3px;
+        .toolbar-actions { display: flex; gap: 8px; }
+        .ghost-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
         }
-        .chat-box::-webkit-scrollbar-thumb:hover {
-            background: #3a4a6e;
+        .ghost-btn:hover { border-color: var(--text-muted); color: var(--text); }
+
+        .input-area {
+            max-width: 768px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-composer);
+            border: 1px solid var(--border);
+            border-radius: 26px;
+            padding: 6px 6px 6px 18px;
         }
+        .input-area input {
+            flex: 1;
+            min-width: 0;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font-size: 15px;
+            font-family: inherit;
+            outline: none;
+            padding: 8px 0;
+        }
+        .input-area input::placeholder { color: var(--text-muted); }
+        .input-area:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--focus-ring);
+        }
+        .input-area button {
+            flex: none;
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 50%;
+            background: var(--text);
+            color: var(--bg);
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        .input-area button:hover:not(:disabled) { opacity: 0.85; }
+        .input-area button:active:not(:disabled) { transform: scale(0.94); }
+        .input-area button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .disclaimer {
+            max-width: 768px;
+            margin: 10px auto 0;
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>🧠 Larp Torch Chat</h1>
-    
-    <div id="status" class="status loading">
-        <span class="spinner"></span>
-        <span id="statusText">Loading model...</span>
-    </div>
-    
-    <div id="chatBox" class="chat-box">
-        <div class="message assistant">🤖 <span>Ready. Enter a message to start chatting.</span></div>
-    </div>
-    
-    <div class="controls">
-        <label>
-            Temperature
-            <input type="range" id="temperatureSlider" min="0.1" max="1.5" step="0.05" value="0.7">
-            <span class="temp-value" id="tempDisplay">0.70</span>
-        </label>
-        <button id="clearBtn">Clear Chat</button>
-        <button id="resetBtn">Reset Model</button>
-    </div>
-    
-    <div class="input-area">
-        <input id="userInput" type="text" placeholder="Type your message..." autofocus>
-        <button id="sendBtn">Send</button>
-    </div>
-    
-    <div class="footer">
-        Built with Rust + WebAssembly (CPU)
-    </div>
+<div class="app">
+    <header class="topbar">
+        <div class="brand">LarpGPT <span class="model-tag">CPU model</span></div>
+        <div id="status" class="status loading">
+            <span class="dot"></span>
+            <span id="statusText">Loading model…</span>
+        </div>
+    </header>
+
+    <main id="chatBox" class="chat">
+        <div class="message assistant"><span>🤖</span><span>Ready. Enter a message to start chatting.</span></div>
+    </main>
+
+    <footer class="composer">
+        <div class="toolbar">
+            <label class="temp-control">
+                Temperature
+                <input type="range" id="temperatureSlider" min="0.1" max="1.5" step="0.05" value="0.7">
+                <span class="temp-value" id="tempDisplay">0.70</span>
+            </label>
+            <div class="toolbar-actions">
+                <button id="clearBtn" class="ghost-btn">Clear chat</button>
+                <button id="resetBtn" class="ghost-btn">Reset model</button>
+            </div>
+        </div>
+        <div class="input-area">
+            <input id="userInput" type="text" placeholder="Message LarpGPT…" autofocus>
+            <button id="sendBtn" aria-label="Send message">↑</button>
+        </div>
+        <div class="disclaimer">Built with Larp Torch — runs entirely in your browser (Rust + WebAssembly, CPU).</div>
+    </footer>
 </div>
 
 <script type="module">
@@ -266,38 +360,38 @@
     function appendMessage(role, text, isStreaming = false) {
         const msgDiv = document.createElement('div');
         msgDiv.className = `message ${role}`;
-        
+
         const label = document.createElement('span');
-        label.textContent = role === 'user' ? '👤 ' : '🤖 ';
+        label.textContent = role === 'user' ? '👤' : '🤖';
         msgDiv.appendChild(label);
-        
+
         const contentSpan = document.createElement('span');
         contentSpan.textContent = text;
         msgDiv.appendChild(contentSpan);
-        
+
         // Remove any existing streaming cursor
         const lastMsg = chatBox.lastElementChild;
         if (lastMsg && lastMsg.querySelector('.cursor')) {
             lastMsg.remove();
         }
-        
+
         chatBox.appendChild(msgDiv);
         chatBox.scrollTop = chatBox.scrollHeight;
-        
+
         if (isStreaming) {
             // Add cursor
             const cursor = document.createElement('span');
             cursor.className = 'cursor';
             msgDiv.appendChild(cursor);
         }
-        
+
         return contentSpan;
     }
 
     function updateStreamingMessage(text) {
         const lastMsg = chatBox.lastElementChild;
         if (!lastMsg) return;
-        
+
         const contentSpan = lastMsg.querySelector('span:last-child');
         if (contentSpan && !contentSpan.classList.contains('cursor')) {
             contentSpan.textContent = text;
@@ -337,10 +431,10 @@
             const weights = get_embedded_weights();
             const vocabText = get_embedded_vocab();
             model = await ChatModel.load(weights, vocabText);
-            setStatus('✅ Model ready', 'ready');
+            setStatus('Model ready', 'ready');
         } catch (error) {
             console.error('Model load error:', error);
-            setStatus('❌ Failed to load model: ' + error.message, 'error');
+            setStatus('Failed to load model: ' + error.message, 'error');
         }
     }
 
@@ -348,10 +442,10 @@
     async function generateResponse(prompt) {
         if (!model || isGenerating) return;
         if (!prompt.trim()) return;
-        
+
         isGenerating = true;
         addUserMessage(prompt);
-        
+
         // Seed the model with the prompt
         const recognized = model.seed(prompt);
         if (recognized === 0) {
@@ -359,30 +453,30 @@
             isGenerating = false;
             return;
         }
-        
+
         // Start assistant message with streaming
         const temp = parseFloat(tempSlider.value);
         let fullResponse = '';
         let msgElement = null;
         let firstToken = true;
-        
+
         try {
             // Generate up to 50 tokens
             for (let i = 0; i < 50; i++) {
                 const rand = Math.random();
                 const token = await model.next_token(temp, rand);
-                
+
                 if (token === '' || token === '\n') break;
-                
+
                 fullResponse += (firstToken ? '' : ' ') + token;
                 firstToken = false;
-                
+
                 // Update streaming display
                 if (!msgElement) {
                     const msgDiv = document.createElement('div');
                     msgDiv.className = 'message assistant';
                     const label = document.createElement('span');
-                    label.textContent = '🤖 ';
+                    label.textContent = '🤖';
                     msgDiv.appendChild(label);
                     const contentSpan = document.createElement('span');
                     contentSpan.textContent = fullResponse;
@@ -398,7 +492,7 @@
                 }
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
-            
+
             // Finalize the message
             if (msgElement) {
                 // Remove cursor
@@ -409,9 +503,9 @@
                 }
                 msgElement.textContent = fullResponse;
             }
-            
+
             conversation.push({ role: 'assistant', text: fullResponse });
-            
+
         } catch (error) {
             console.error('Generation error:', error);
             if (msgElement) {
@@ -420,7 +514,7 @@
                 addAssistantMessage('[Error generating response: ' + error.message + ']');
             }
         }
-        
+
         isGenerating = false;
         userInput.disabled = false;
         sendBtn.disabled = false;
@@ -441,7 +535,7 @@
     });
 
     clearBtn.addEventListener('click', () => {
-        chatBox.innerHTML = `<div class="message assistant">🤖 <span>Chat cleared. Enter a message to start.</span></div>`;
+        chatBox.innerHTML = `<div class="message assistant"><span>🤖</span><span>Chat cleared. Enter a message to start.</span></div>`;
         conversation = [];
         if (model) {
             model.seed('');
@@ -451,9 +545,9 @@
     resetBtn.addEventListener('click', async () => {
         if (model) {
             model.seed('');
-            chatBox.innerHTML = `<div class="message assistant">🤖 <span>Model reset. Enter a message to start.</span></div>`;
+            chatBox.innerHTML = `<div class="message assistant"><span>🤖</span><span>Model reset. Enter a message to start.</span></div>`;
             conversation = [];
-            setStatus('🔄 Model reset', 'ready');
+            setStatus('Model reset', 'ready');
         }
     });
 
