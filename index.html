@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Larp Torch Chat</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #e94560;
+            font-weight: 300;
+            letter-spacing: 2px;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+        }
+        .status {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #16213e;
+            border-left: 4px solid #e94560;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status.loading { border-left-color: #f5a623; }
+        .status.ready { border-left-color: #2ecc71; }
+        .status.error { border-left-color: #e74c3c; }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f5a623;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .chat-box {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #2a3a5e;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .chat-box .user {
+            color: #f5a623;
+            font-weight: 500;
+        }
+        .chat-box .assistant {
+            color: #2ecc71;
+            font-weight: 500;
+        }
+        .chat-box .message {
+            padding: 4px 0;
+        }
+        .chat-box .message:last-child .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: #2ecc71;
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 1px solid #2a3a5e;
+            border-radius: 8px;
+            background: #0f1a2e;
+            color: #eee;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .input-area input:focus {
+            border-color: #e94560;
+        }
+        .input-area input::placeholder {
+            color: #666;
+        }
+        .input-area button {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            background: #e94560;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+            white-space: nowrap;
+        }
+        .input-area button:hover:not(:disabled) {
+            background: #c73652;
+        }
+        .input-area button:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+        .input-area button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .controls label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #aaa;
+        }
+        .controls input[type="range"] {
+            width: 120px;
+            accent-color: #e94560;
+            background: #2a3a5e;
+            height: 4px;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .controls .temp-value {
+            min-width: 30px;
+            text-align: center;
+            color: #f5a623;
+            font-weight: 600;
+        }
+        .controls button {
+            padding: 8px 16px;
+            border: 1px solid #2a3a5e;
+            border-radius: 6px;
+            background: transparent;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+        .controls button:hover {
+            background: #2a3a5e;
+            color: #eee;
+        }
+        
+        .footer {
+            text-align: center;
+            color: #555;
+            font-size: 12px;
+            padding: 10px 0;
+        }
+        
+        /* Scrollbar styling */
+        .chat-box::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-box::-webkit-scrollbar-track {
+            background: #0f1a2e;
+        }
+        .chat-box::-webkit-scrollbar-thumb {
+            background: #2a3a5e;
+            border-radius: 3px;
+        }
+        .chat-box::-webkit-scrollbar-thumb:hover {
+            background: #3a4a6e;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🧠 Larp Torch Chat</h1>
+    
+    <div id="status" class="status loading">
+        <span class="spinner"></span>
+        <span id="statusText">Loading model...</span>
+    </div>
+    
+    <div id="chatBox" class="chat-box">
+        <div class="message assistant">🤖 <span>Ready. Enter a message to start chatting.</span></div>
+    </div>
+    
+    <div class="controls">
+        <label>
+            Temperature
+            <input type="range" id="temperatureSlider" min="0.1" max="1.5" step="0.05" value="0.7">
+            <span class="temp-value" id="tempDisplay">0.70</span>
+        </label>
+        <button id="clearBtn">Clear Chat</button>
+        <button id="resetBtn">Reset Model</button>
+    </div>
+    
+    <div class="input-area">
+        <input id="userInput" type="text" placeholder="Type your message..." autofocus>
+        <button id="sendBtn">Send</button>
+    </div>
+    
+    <div class="footer">
+        Built with Rust + WebAssembly (CPU)
+    </div>
+</div>
+
+<script type="module">
+    import init, { ChatModel } from './pkg/larp_torch_website.js';
+
+    // --- DOM refs ---
+    const statusEl = document.getElementById('status');
+    const statusText = document.getElementById('statusText');
+    const chatBox = document.getElementById('chatBox');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const tempSlider = document.getElementById('temperatureSlider');
+    const tempDisplay = document.getElementById('tempDisplay');
+
+    // --- State ---
+    let model = null;
+    let isGenerating = false;
+    let conversation = []; // array of { role: 'user'|'assistant', text: string }
+    let generationBuffer = '';
+
+    // --- Status updates ---
+    function setStatus(message, type = 'loading') {
+        statusEl.className = `status ${type}`;
+        statusText.textContent = message;
+    }
+
+    function appendMessage(role, text, isStreaming = false) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${role}`;
+        
+        const label = document.createElement('span');
+        label.textContent = role === 'user' ? '👤 ' : '🤖 ';
+        msgDiv.appendChild(label);
+        
+        const contentSpan = document.createElement('span');
+        contentSpan.textContent = text;
+        msgDiv.appendChild(contentSpan);
+        
+        // Remove any existing streaming cursor
+        const lastMsg = chatBox.lastElementChild;
+        if (lastMsg && lastMsg.querySelector('.cursor')) {
+            lastMsg.remove();
+        }
+        
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        if (isStreaming) {
+            // Add cursor
+            const cursor = document.createElement('span');
+            cursor.className = 'cursor';
+            msgDiv.appendChild(cursor);
+        }
+        
+        return contentSpan;
+    }
+
+    function updateStreamingMessage(text) {
+        const lastMsg = chatBox.lastElementChild;
+        if (!lastMsg) return;
+        
+        const contentSpan = lastMsg.querySelector('span:last-child');
+        if (contentSpan && !contentSpan.classList.contains('cursor')) {
+            contentSpan.textContent = text;
+        }
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function removeCursor() {
+        const lastMsg = chatBox.lastElementChild;
+        if (lastMsg) {
+            const cursor = lastMsg.querySelector('.cursor');
+            if (cursor) cursor.remove();
+        }
+    }
+
+    function addUserMessage(text) {
+        conversation.push({ role: 'user', text });
+        appendMessage('user', text);
+        userInput.value = '';
+        userInput.disabled = true;
+        sendBtn.disabled = true;
+    }
+
+    function addAssistantMessage(text) {
+        conversation.push({ role: 'assistant', text });
+        appendMessage('assistant', text);
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+    }
+
+    import { get_embedded_weights, get_embedded_vocab } from './pkg/larp_torch_website.js';
+
+    async function loadModel() {
+        try {
+            await init();
+            const weights = get_embedded_weights();
+            const vocabText = get_embedded_vocab();
+            model = await ChatModel.load(weights, vocabText);
+            setStatus('✅ Model ready', 'ready');
+        } catch (error) {
+            console.error('Model load error:', error);
+            setStatus('❌ Failed to load model: ' + error.message, 'error');
+        }
+    }
+
+    // --- Generation ---
+    async function generateResponse(prompt) {
+        if (!model || isGenerating) return;
+        if (!prompt.trim()) return;
+        
+        isGenerating = true;
+        addUserMessage(prompt);
+        
+        // Seed the model with the prompt
+        const recognized = model.seed(prompt);
+        if (recognized === 0) {
+            addAssistantMessage("I don't recognize any words in that message. Please try different wording.");
+            isGenerating = false;
+            return;
+        }
+        
+        // Start assistant message with streaming
+        const temp = parseFloat(tempSlider.value);
+        let fullResponse = '';
+        let msgElement = null;
+        let firstToken = true;
+        
+        try {
+            // Generate up to 50 tokens
+            for (let i = 0; i < 50; i++) {
+                const rand = Math.random();
+                const token = await model.next_token(temp, rand);
+                
+                if (token === '' || token === '\n') break;
+                
+                fullResponse += (firstToken ? '' : ' ') + token;
+                firstToken = false;
+                
+                // Update streaming display
+                if (!msgElement) {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'message assistant';
+                    const label = document.createElement('span');
+                    label.textContent = '🤖 ';
+                    msgDiv.appendChild(label);
+                    const contentSpan = document.createElement('span');
+                    contentSpan.textContent = fullResponse;
+                    msgDiv.appendChild(contentSpan);
+                    // Add cursor
+                    const cursor = document.createElement('span');
+                    cursor.className = 'cursor';
+                    msgDiv.appendChild(cursor);
+                    chatBox.appendChild(msgDiv);
+                    msgElement = contentSpan;
+                } else {
+                    msgElement.textContent = fullResponse;
+                }
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+            
+            // Finalize the message
+            if (msgElement) {
+                // Remove cursor
+                const lastMsg = chatBox.lastElementChild;
+                if (lastMsg) {
+                    const cursor = lastMsg.querySelector('.cursor');
+                    if (cursor) cursor.remove();
+                }
+                msgElement.textContent = fullResponse;
+            }
+            
+            conversation.push({ role: 'assistant', text: fullResponse });
+            
+        } catch (error) {
+            console.error('Generation error:', error);
+            if (msgElement) {
+                msgElement.textContent = fullResponse + ' [error: ' + error.message + ']';
+            } else {
+                addAssistantMessage('[Error generating response: ' + error.message + ']');
+            }
+        }
+        
+        isGenerating = false;
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+    }
+
+    // --- Event handlers ---
+    sendBtn.addEventListener('click', () => {
+        const text = userInput.value.trim();
+        if (text) generateResponse(text);
+    });
+
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendBtn.click();
+        }
+    });
+
+    clearBtn.addEventListener('click', () => {
+        chatBox.innerHTML = `<div class="message assistant">🤖 <span>Chat cleared. Enter a message to start.</span></div>`;
+        conversation = [];
+        if (model) {
+            model.seed('');
+        }
+    });
+
+    resetBtn.addEventListener('click', async () => {
+        if (model) {
+            model.seed('');
+            chatBox.innerHTML = `<div class="message assistant">🤖 <span>Model reset. Enter a message to start.</span></div>`;
+            conversation = [];
+            setStatus('🔄 Model reset', 'ready');
+        }
+    });
+
+    tempSlider.addEventListener('input', () => {
+        tempDisplay.textContent = parseFloat(tempSlider.value).toFixed(2);
+    });
+
+    // --- Initial load ---
+    loadModel();
+</script>
+</body>
+</html>

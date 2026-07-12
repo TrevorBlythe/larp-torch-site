@@ -1,0 +1,9 @@
+# Only the files needed to actually run the page go to GitHub — no Rust
+# source, no Cargo files, no build cache. Deny everything, then allow
+# back exactly what's needed.
+*
+!.gitignore
+!index.html
+!pkg/
+!pkg/larp_torch_website.js
+!pkg/larp_torch_website_bg.wasm
