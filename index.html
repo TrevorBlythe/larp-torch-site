@@ -347,7 +347,7 @@
 </div>
 
 <script type="module">
-    import init, { ChatModel } from './pkg/larp_torch_website.js?v=7ab7f78d48c3';
+    import init, { ChatModel } from './pkg/larp_torch_website.js?v=1433c736985e';
 
     // --- DOM refs ---
     const statusEl = document.getElementById('status');
@@ -441,7 +441,7 @@
         userInput.focus();
     }
 
-    import { get_embedded_weights, get_embedded_vocab } from './pkg/larp_torch_website.js?v=7ab7f78d48c3';
+    import { get_embedded_weights, get_embedded_vocab } from './pkg/larp_torch_website.js?v=1433c736985e';
 
     // Fetches a URL ourselves (instead of letting wasm-bindgen's init() do
     // it internally) so we can read real download progress off the
@@ -479,7 +479,7 @@
         try {
             const t0 = performance.now();
             const wasmBytes = await fetchWithProgress(
-                './pkg/larp_torch_website_bg.wasm?v=7ab7f78d48c3',
+                './pkg/larp_torch_website_bg.wasm?v=1433c736985e',
                 (loaded, total) => {
                     const pct = Math.round((loaded / total) * 100);
                     loadProgressBar.style.width = pct + '%';
